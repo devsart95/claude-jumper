@@ -1,3 +1,4 @@
+import AppKit
 import SpriteKit
 import Testing
 @testable import ClaudeJumper
@@ -5,22 +6,53 @@ import Testing
 @MainActor
 struct GameSceneTests {
     @Test func aRunWithoutJumpingEndsAtTheFirstObstacle() {
-        let scene = GameScene(size: CGSize(width: 1_180, height: 280))
-        scene.didMove(to: SKView())
-        scene.handleSpace()
-
-        var clock: TimeInterval = 1
-        func play(seconds: Double) {
-            for _ in 0..<Int(seconds * 60) {
-                scene.update(clock)
-                clock += 1.0 / 60
-            }
+        withRun { scene, play in
+            scene.handleSpace()
+            play(12)
+            #expect(scene.state == .gameOver)
+            #expect((20...120).contains(scene.score), "ended at \(scene.score) points")
         }
-        play(seconds: 12)
-        let finalScore = scene.score
-        play(seconds: 1)
+    }
 
-        #expect(scene.score == finalScore, "the run should be over")
-        #expect((20...120).contains(finalScore), "ended at \(finalScore) points")
+    @Test func aSpaceRightAfterACrashDoesNotRestartTheRun() {
+        withRun { scene, play in
+            scene.handleSpace()
+            while scene.state != .gameOver { play(1.0 / 60) }
+
+            scene.handleSpace()
+            #expect(scene.state == .gameOver)
+
+            play(0.6)
+            scene.handleSpace()
+            #expect(scene.state == .running)
+        }
+    }
+
+    @Test func theControlsFollowTheTrackAfterItIsHidden() throws {
+        _ = NSApplication.shared
+        let window = FloatingGameWindow(screen: try #require(NSScreen.main))
+        defer { window.hideGame() }
+
+        window.hideGame()
+        window.showGame()
+        #expect(window.childWindows?.count == 1)
+    }
+}
+
+/// Runs a scene against throwaway defaults, driving `update` at 60 fps from a fake clock.
+@MainActor
+private func withRun(_ body: (GameScene, (Double) -> Void) -> Void) {
+    let suite = "ClaudeJumperTests.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suite) else { return }
+    defer { defaults.removePersistentDomain(forName: suite) }
+
+    let scene = GameScene(size: CGSize(width: 1_180, height: 280), theme: .darkBackground, defaults: defaults)
+    scene.didMove(to: SKView())
+    var clock: TimeInterval = 1
+    body(scene) { seconds in
+        for _ in 0..<max(1, Int(seconds * 60)) {
+            scene.update(clock)
+            clock += 1.0 / 60
+        }
     }
 }

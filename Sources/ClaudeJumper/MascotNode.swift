@@ -7,7 +7,7 @@ final class MascotNode: SKNode {
     private let sprite: SKSpriteNode
     private let shadow = SKShapeNode(ellipseOf: CGSize(width: 43, height: 7))
 
-    override init() {
+    init(theme: GameTheme) {
         let image: NSImage
         if let url = Bundle.main.url(forResource: "clawd-sunglasses", withExtension: "png"),
            let bundled = NSImage(contentsOf: url) {
@@ -21,7 +21,7 @@ final class MascotNode: SKNode {
         sprite = SKSpriteNode(texture: texture, size: Self.renderedSize)
         super.init()
 
-        shadow.fillColor = GameTheme.saved.shadow
+        shadow.fillColor = theme.shadow
         shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 0, y: -30)
         shadow.zPosition = -1

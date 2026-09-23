@@ -7,32 +7,51 @@ final class GameScene: SKScene {
     private struct Obstacle {
         let node: SKShapeNode
         let size: CGSize
+        /// Track scroll at which its left edge crosses the right edge of the scene.
+        let mark: CGFloat
     }
 
     private static let groundY: CGFloat = 36
+    private static let highScoreKey = "highScore"
+    /// A space pressed right after a crash is usually a late jump, not a request to play again.
+    private static let restartDelay: TimeInterval = 0.5
 
-    private let mascot = MascotNode()
+    var onGameOver: (() -> Void)?
+
+    private let defaults: UserDefaults
+    private let mascot: MascotNode
     private let ground = SKShapeNode()
     private let scoreLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let hintLabel = SKLabelNode(fontNamed: "HelveticaNeue-Medium")
     private let highScoreLabel = SKLabelNode(fontNamed: "Menlo-Regular")
     private var obstacles: [Obstacle] = []
-    private var state: State = .waiting
+    private(set) var state: State = .waiting
     private var lastUpdate: TimeInterval = 0
-    private var spawnElapsed: TimeInterval = 0
-    private var scoreElapsed: TimeInterval = 0
-    private var nextSpawnDelay = RunnerPhysics.firstObstacleDelay
+    private var gameOverTime: TimeInterval = 0
+    private var runTime: TimeInterval = 0
     private var lift: CGFloat = 0
     private var verticalVelocity: CGFloat = 0
     private var isGrounded = true
-    private(set) var visualTheme = GameTheme.saved
+    private(set) var visualTheme: GameTheme
     private(set) var score = 0
     private var highScore: Int {
-        get { UserDefaults.standard.integer(forKey: "highScore") }
-        set { UserDefaults.standard.set(newValue, forKey: "highScore") }
+        get { defaults.integer(forKey: Self.highScoreKey) }
+        set { defaults.set(newValue, forKey: Self.highScoreKey) }
     }
 
     private var mascotX: CGFloat { max(112, size.width * 0.12) }
+    private var approachDistance: CGFloat {
+        RunnerPhysics.approachDistance(entryX: size.width, mascotX: mascotX)
+    }
+
+    init(size: CGSize, theme: GameTheme, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        visualTheme = theme
+        mascot = MascotNode(theme: theme)
+        super.init(size: size)
+    }
+
+    required init?(coder: NSCoder) { nil }
 
     override func didMove(to view: SKView) {
         backgroundColor = .clear
@@ -106,6 +125,7 @@ final class GameScene: SKScene {
         case .paused:
             setPaused(false)
         case .gameOver:
+            guard lastUpdate - gameOverTime >= Self.restartDelay else { return }
             reset()
             start()
             jump()
@@ -126,6 +146,7 @@ final class GameScene: SKScene {
         state = .running
         hintLabel.text = ""
         mascot.setRunning(true)
+        addObstacle(after: nil)
     }
 
     private func jump() {
@@ -148,33 +169,43 @@ final class GameScene: SKScene {
     private func reset() {
         obstacles.forEach { $0.node.removeFromParent() }
         obstacles.removeAll()
+        runTime = 0
         lift = 0
         verticalVelocity = 0
         isGrounded = true
         placeMascot()
         mascot.setAirborne(false)
         score = 0
-        spawnElapsed = 0
-        scoreElapsed = 0
-        nextSpawnDelay = RunnerPhysics.firstObstacleDelay
         updateLabels()
     }
 
-    private func spawnObstacle() {
+    /// Places the next obstacle past the right edge, far enough behind `previous` that a
+    /// last-moment jump over it still lands in time for this one.
+    private func addObstacle(after previous: Obstacle?) {
         guard let obstacleSize = RunnerPhysics.obstacleSizes.randomElement() else { return }
+        let mark: CGFloat
+        if let previous {
+            let gap = RunnerPhysics.arrivalGap(
+                from: previous.size,
+                to: obstacleSize,
+                rest: .random(in: RunnerPhysics.restBetweenObstacles)
+            )
+            mark = RunnerPhysics.nextMark(after: previous.mark, approach: approachDistance, gap: gap)
+        } else {
+            mark = RunnerPhysics.distance(atRunTime: runTime + RunnerPhysics.firstObstacleDelay)
+        }
+
         let node = SKShapeNode(rectOf: obstacleSize, cornerRadius: obstacleSize.width > 40 ? 5 : 2)
         node.fillColor = visualTheme.foreground
         node.strokeColor = visualTheme.foreground
-        // Every obstacle enters with its left edge at the scene's right edge, so the time between
-        // two arrivals is exactly the spawn interval, whatever their widths.
-        node.position = CGPoint(x: size.width + obstacleSize.width / 2, y: Self.groundY + obstacleSize.height / 2)
         node.addChild(makeNotch(for: obstacleSize, y: obstacleSize.height * 0.16))
         if obstacleSize.width >= 38 {
             node.addChild(makeNotch(for: obstacleSize, y: -obstacleSize.height * 0.18))
         }
+        let obstacle = Obstacle(node: node, size: obstacleSize, mark: mark)
+        place(obstacle, scrolled: RunnerPhysics.distance(atRunTime: runTime))
         addChild(node)
-        obstacles.append(Obstacle(node: node, size: obstacleSize))
-        nextSpawnDelay = .random(in: RunnerPhysics.obstacleInterval)
+        obstacles.append(obstacle)
     }
 
     private func makeNotch(for obstacleSize: CGSize, y: CGFloat) -> SKShapeNode {
@@ -185,20 +216,27 @@ final class GameScene: SKScene {
         return notch
     }
 
+    private func place(_ obstacle: Obstacle, scrolled: CGFloat) {
+        let leftEdge = size.width + obstacle.mark - scrolled
+        obstacle.node.position = CGPoint(
+            x: leftEdge + obstacle.size.width / 2,
+            y: Self.groundY + obstacle.size.height / 2
+        )
+    }
+
     override func update(_ currentTime: TimeInterval) {
         defer { lastUpdate = currentTime }
         guard state == .running, lastUpdate > 0 else { return }
         let dt = min(currentTime - lastUpdate, RunnerPhysics.maxStep)
+        runTime += dt
+        let scrolled = RunnerPhysics.distance(atRunTime: runTime)
 
-        spawnElapsed += dt
-        if spawnElapsed >= nextSpawnDelay {
-            spawnElapsed = 0
-            spawnObstacle()
+        // The newest obstacle is always waiting off screen; once it enters, queue the one after it.
+        if let newest = obstacles.last, scrolled >= newest.mark {
+            addObstacle(after: newest)
         }
-
-        let speed = RunnerPhysics.speed(score: score)
         for obstacle in obstacles {
-            obstacle.node.position.x -= speed * CGFloat(dt)
+            place(obstacle, scrolled: scrolled)
         }
         obstacles.removeAll { obstacle in
             let isGone = obstacle.node.position.x < -obstacle.size.width
@@ -218,14 +256,13 @@ final class GameScene: SKScene {
         }
 
         if hitsObstacle() {
-            finishGame()
+            finishGame(at: currentTime)
             return
         }
 
-        scoreElapsed += dt
-        if scoreElapsed >= RunnerPhysics.pointInterval {
-            scoreElapsed -= RunnerPhysics.pointInterval
-            score += 1
+        let newScore = RunnerPhysics.score(atRunTime: runTime)
+        if newScore != score {
+            score = newScore
             updateLabels()
         }
     }
@@ -237,13 +274,14 @@ final class GameScene: SKScene {
         }
     }
 
-    private func finishGame() {
+    private func finishGame(at time: TimeInterval) {
         state = .gameOver
+        gameOverTime = time
         mascot.setRunning(false)
         if score > highScore { highScore = score }
         updateLabels()
         hintLabel.text = "OUCH  ·  ESPACIO PARA REINTENTAR"
-        NSSound.beep()
+        onGameOver?()
         run(.sequence([
             .moveBy(x: -5, y: 0, duration: 0.035),
             .moveBy(x: 10, y: 0, duration: 0.07),

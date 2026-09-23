@@ -54,7 +54,7 @@ final class FloatingGameWindow: NSWindow {
     private var themeButton: NSButton?
     private weak var usernameLabel: NSTextField?
     private weak var dragSurface: DragSurfaceView?
-    private(set) var gameTheme = GameTheme.saved
+    private(set) var gameTheme: GameTheme
 
     var isRecordingMode: Bool {
         get { controlsWindow?.contentView?.isHidden ?? false }
@@ -71,7 +71,9 @@ final class FloatingGameWindow: NSWindow {
             x: screen.visibleFrame.midX - width / 2,
             y: screen.visibleFrame.minY + 10
         )
-        scene = GameScene(size: size)
+        let theme = GameTheme.saved
+        gameTheme = theme
+        scene = GameScene(size: size, theme: theme)
         scene.scaleMode = .resizeFill
 
         super.init(
@@ -88,6 +90,7 @@ final class FloatingGameWindow: NSWindow {
         let spriteView = SKView(frame: container.bounds)
         spriteView.autoresizingMask = [.width, .height]
         spriteView.allowsTransparency = true
+        scene.onGameOver = { NSSound.beep() }
         spriteView.presentScene(scene)
         container.addSubview(spriteView)
         usernameLabel = addUsername(to: container, width: size.width, height: size.height)
@@ -102,7 +105,6 @@ final class FloatingGameWindow: NSWindow {
         hidesOnDeactivate = false
         animationBehavior = .utilityWindow
         controlsWindow = makeControlsWindow(parentOrigin: origin, parentHeight: size.height)
-        if let controlsWindow { addChildWindow(controlsWindow, ordered: .above) }
         setTheme(gameTheme, persist: false)
         showGame()
     }
@@ -114,7 +116,7 @@ final class FloatingGameWindow: NSWindow {
         NSApp.terminate(nil)
     }
 
-    @objc private func minimizeGame() {
+    @objc func hideGame() {
         controlsWindow?.orderOut(nil)
         orderOut(nil)
     }
@@ -141,6 +143,10 @@ final class FloatingGameWindow: NSWindow {
     }
 
     func showGame() {
+        // Ordering a child window out detaches it, so the controls are attached again on every show.
+        if let controlsWindow, controlsWindow.parent == nil {
+            addChildWindow(controlsWindow, ordered: .above)
+        }
         orderFrontRegardless()
         controlsWindow?.orderFrontRegardless()
     }
@@ -174,7 +180,7 @@ final class FloatingGameWindow: NSWindow {
             symbol: "minus",
             color: NSColor.systemYellow,
             label: "Minimizar Claude Jumper",
-            action: #selector(FloatingGameWindow.minimizeGame),
+            action: #selector(FloatingGameWindow.hideGame),
             target: self
         )
         minimize.frame.origin = CGPoint(x: 34, y: 4)
@@ -245,7 +251,8 @@ final class FloatingGameWindow: NSWindow {
     }
 
     // `defaults write py.devsar.claudejumper signature "@you"`; an empty string hides it.
+    private static let signatureKey = "signature"
     private static var signature: String {
-        UserDefaults.standard.string(forKey: "signature") ?? "@rojassartorio"
+        UserDefaults.standard.string(forKey: signatureKey) ?? "@rojassartorio"
     }
 }

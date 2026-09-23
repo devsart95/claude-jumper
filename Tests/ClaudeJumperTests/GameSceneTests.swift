@@ -28,6 +28,14 @@ struct GameSceneTests {
         }
     }
 
+    @Test func slowFramesDoNotSlowTheRunDown() {
+        withRun(fps: 10) { scene, play in
+            scene.handleSpace()
+            play(3)
+            #expect((28...30).contains(scene.score), "\(scene.score) points after 3 s at 10 fps")
+        }
+    }
+
     @Test func theControlsFollowTheTrackAfterItIsHidden() throws {
         _ = NSApplication.shared
         let window = FloatingGameWindow(screen: try #require(NSScreen.main))
@@ -39,9 +47,9 @@ struct GameSceneTests {
     }
 }
 
-/// Runs a scene against throwaway defaults, driving `update` at 60 fps from a fake clock.
+/// Runs a scene against throwaway defaults, driving `update` from a fake clock.
 @MainActor
-private func withRun(_ body: (GameScene, (Double) -> Void) -> Void) {
+private func withRun(fps: Double = 60, _ body: (GameScene, (Double) -> Void) -> Void) {
     let suite = "ClaudeJumperTests.\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suite) else { return }
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -50,9 +58,9 @@ private func withRun(_ body: (GameScene, (Double) -> Void) -> Void) {
     scene.didMove(to: SKView())
     var clock: TimeInterval = 1
     body(scene) { seconds in
-        for _ in 0..<max(1, Int(seconds * 60)) {
+        for _ in 0..<max(1, Int(seconds * fps)) {
             scene.update(clock)
-            clock += 1.0 / 60
+            clock += 1 / fps
         }
     }
 }

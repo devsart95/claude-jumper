@@ -10,5 +10,6 @@ stack:
 
 comandos:
   build: ./scripts/build-app.sh
+  test: swift test
   # Necesita la app abierta; pone una ventana en pantalla completa unos segundos.
   verificar: swift scripts/verificar-overlay.swift

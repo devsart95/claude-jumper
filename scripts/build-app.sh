@@ -33,7 +33,6 @@ cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><false/>
   <key>CFBundleIconFile</key><string>ClaudeJumper</string>
-  <key>NSInputMonitoringUsageDescription</key><string>Claude Jumper usa la barra espaciadora para saltar mientras trabajás en otras aplicaciones. No registra ni guarda el teclado.</string>
   <key>NSHumanReadableCopyright</key><string>© 2026 DevSar · Sprite: Icons8 (icons8.com)</string>
 </dict>
 </plist>

@@ -3,6 +3,8 @@ import ApplicationServices
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let spaceKeyCode: UInt16 = 49
+
     private var window: FloatingGameWindow?
     private var statusItem: NSStatusItem?
     private var globalMonitor: Any?
@@ -32,39 +34,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func installLocalKeyboardMonitor() {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 49, !event.isARepeat {
+            if event.keyCode == Self.spaceKeyCode, !event.isARepeat {
                 self?.window?.scene.handleSpace()
             }
             return event
         }
     }
 
+    // Global key-down monitors only receive events when the app is trusted for Accessibility; Input
+    // Monitoring alone isn't enough. The system prompt already links to System Settings.
     private func configureGlobalKeyboardAccess() {
-        if globalKeyboardAccessGranted() {
-            installGlobalKeyboardMonitor()
-            return
-        }
-
-        updatePermissionMenu(granted: false)
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        if AXIsProcessTrustedWithOptions(options) {
+        let prompt = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        if AXIsProcessTrustedWithOptions(prompt) {
             installGlobalKeyboardMonitor()
         } else {
+            updatePermissionMenu(granted: false)
             startPermissionPolling()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-                self?.openAccessibilitySettings()
-            }
         }
-    }
-
-    private func globalKeyboardAccessGranted() -> Bool {
-        AXIsProcessTrusted() || CGPreflightListenEventAccess()
     }
 
     private func installGlobalKeyboardMonitor() {
         guard globalMonitor == nil else { return }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == 49, !event.isARepeat else { return }
+            guard event.keyCode == Self.spaceKeyCode, !event.isARepeat else { return }
             Task { @MainActor in self?.window?.scene.handleSpace() }
         }
         permissionTimer?.invalidate()
@@ -76,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         permissionTimer?.invalidate()
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.globalKeyboardAccessGranted() else { return }
+                guard let self, AXIsProcessTrusted() else { return }
                 self.installGlobalKeyboardMonitor()
             }
         }

@@ -27,23 +27,17 @@
   separación = correr los tests.
 - **Obstáculos por distancia, no por tiempo.** Cada uno tiene su `mark` (scroll en el que entra) y
   el siguiente se ubica para llegar a la mascota `arrivalGap` después, contando la aceleración: por
-  tiempo, los primeros 16 s llegaban a 0,84–0,92 s en vez de 1 s. La regla es el peor caso: aun
+  tiempo, con la rampa de 16 s de entonces, llegaban a 0,84–0,92 s en vez de 1 s. La regla es el peor caso: aun
   saltando el primero en el último momento válido, se aterriza ≥ `timingMargin` (0,2 s) antes del
   último momento para saltar el siguiente. Separación 0,94–1,47 s, media 1,20 s (igual ritmo que el
   diseño original).
 - **Cuadros lentos se juegan en pasos de ≤ 1/20 s** (hasta 0,25 s de puesta al día). Antes se
   recortaban y el juego iba en cámara lenta: en la Mac a batería con Modo de bajo consumo el
   puntaje corrió a ~5 pts/s en vez de 10 (2026-09-23).
+- **Dificultad: la velocidad sube de 255 a 455 pt/s durante el primer minuto** (`timeToTopSpeed`,
+  2026-09-23). Antes llegaba al tope a los 16 s y el resto de la partida no cambiaba.
 - El pitido de choque lo pone la ventana (`GameScene.onGameOver`); la escena recibe tema y
   `UserDefaults` por init, así los tests no pitan ni escriben el récord real.
 - Heros del README (`docs/hero-{dark,light}.png`): la pista es una captura real con alfa
-  (`screencapture -l <windowID> -o`, saltando con el botón «Saltar ahora» por AX, no con la barra
-  espaciadora sintética) compuesta sobre un fondo HTML de editor y terminal renderizado a 2x.
+  (`screencapture -l <windowID> -o`, saltando con el botón «Saltar ahora» por AX) compuesta sobre un fondo HTML de editor y terminal renderizado a 2x.
   Rehacerlos si cambia la UI de la pista.
-
-## Abierto
-- **El tema cambió solo** durante ráfagas de capturas con `osascript … key code 49` (el guardado
-  pasó de `darkBackground` a `lightBackground` sin tocar el botón). Aislado (un espacio, con la
-  app o Terminal al frente) no se reprodujo. Con clicks por AX no pasa.
-- Dificultad: la velocidad tope llega a los 16 s y después el juego no cambia; como el salto dura
-  siempre 0,80 s, la ventana para saltar se agranda con la velocidad. Es decisión de diseño.

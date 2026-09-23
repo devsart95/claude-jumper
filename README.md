@@ -30,8 +30,8 @@ apps. It ignores every other key.
 ## The nerdy part
 
 The jump is `v = √(2gh)` with g = 1,550 pt/s² and h = 125 pt, which gives 0.80 s of airtime at any frame rate. Obstacles top
-out at 64 pt and arrive one jump apart plus 0.20 to 0.62 s, so each one gives you at least 0.33 s to time it and you always
-land with time to spare. `swift test` checks all of it.
+out at 64 pt, so each one leaves at least 0.33 s to time the jump. They are placed by distance, accounting for the speed-up,
+so even a last-moment jump lands at least 0.2 s before you have to jump the next one. `swift test` checks all of it.
 
 ## Credits
 

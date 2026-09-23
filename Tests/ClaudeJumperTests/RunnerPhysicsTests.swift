@@ -35,8 +35,8 @@ struct RunnerPhysicsTests {
         }
     }
 
-    /// Entering at 0, 5, 12 and 20 s covers the ramp, the switch to top speed and the cruise.
-    @Test(arguments: [0.0, 5.0, 12.0, 20.0])
+    /// Entering at 0, 30, 58 and 70 s covers the ramp, the switch to top speed and the cruise.
+    @Test(arguments: [0.0, 30.0, 58.0, 70.0])
     func obstaclesArriveAtTheirGapWhileTheRunSpeedsUp(entryTime: TimeInterval) {
         let approach: CGFloat = 1_000
         let gap: TimeInterval = 1
@@ -66,9 +66,9 @@ private func takeoffWindow(for size: CGSize, speed: CGFloat) -> (earliest: TimeI
 }
 
 /// Run times at which the track has scrolled each distance, integrating the speed in 1 ms steps.
-/// The speed law comes from the design: +12.5 pt/s every second, from 255 up to 455 pt/s.
+/// The speed law comes from the design: from 255 to 455 pt/s, evenly over the first minute.
 private func timesToScroll(_ distances: [CGFloat]) -> [TimeInterval] {
-    func speed(at time: TimeInterval) -> CGFloat { min(455, 255 + 12.5 * CGFloat(time)) }
+    func speed(at time: TimeInterval) -> CGFloat { min(455, 255 + 200 * CGFloat(time) / 60) }
     let dt: TimeInterval = 0.001
     var time: TimeInterval = 0
     var scrolled: CGFloat = 0

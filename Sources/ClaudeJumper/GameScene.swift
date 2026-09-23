@@ -4,32 +4,25 @@ import AppKit
 final class GameScene: SKScene {
     enum State { case waiting, running, paused, gameOver }
 
-    private enum Geometry {
-        static let groundY: CGFloat = 36
-        static let gravity: CGFloat = 1_550
-        static let maxObstacleHeight: CGFloat = 66
-        static let obstacleClearance: CGFloat = 14
-        static let minimumSpeed: CGFloat = 255
-        static let maximumSpeed: CGFloat = 455
-
-        // v = √(2gh). This guarantees the player's lower edge clears the
-        // tallest obstacle plus a deliberate forgiveness margin.
-        static let jumpHeight: CGFloat = 125
-        static let jumpVelocity = sqrt(2 * gravity * jumpHeight)
-        static let flightTime = (2 * jumpVelocity) / gravity
+    private struct Obstacle {
+        let node: SKShapeNode
+        let size: CGSize
     }
+
+    private static let groundY: CGFloat = 36
 
     private let mascot = MascotNode()
     private let ground = SKShapeNode()
     private let scoreLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let hintLabel = SKLabelNode(fontNamed: "HelveticaNeue-Medium")
     private let highScoreLabel = SKLabelNode(fontNamed: "Menlo-Regular")
+    private var obstacles: [Obstacle] = []
     private var state: State = .waiting
     private var lastUpdate: TimeInterval = 0
     private var spawnElapsed: TimeInterval = 0
     private var scoreElapsed: TimeInterval = 0
-    private var nextSpawnDelay: TimeInterval = 1.5
-    private var runSpeed: CGFloat = Geometry.minimumSpeed
+    private var nextSpawnDelay = RunnerPhysics.firstObstacleDelay
+    private var lift: CGFloat = 0
     private var verticalVelocity: CGFloat = 0
     private var isGrounded = true
     private(set) var visualTheme = GameTheme.saved
@@ -38,6 +31,8 @@ final class GameScene: SKScene {
         get { UserDefaults.standard.integer(forKey: "highScore") }
         set { UserDefaults.standard.set(newValue, forKey: "highScore") }
     }
+
+    private var mascotX: CGFloat { max(112, size.width * 0.12) }
 
     override func didMove(to view: SKView) {
         backgroundColor = .clear
@@ -56,17 +51,16 @@ final class GameScene: SKScene {
         highScoreLabel.fontColor = theme.mutedForeground
         hintLabel.fontColor = theme.foreground
         mascot.applyTheme(theme)
-        enumerateChildNodes(withName: "obstacle") { node, _ in
-            guard let obstacle = node as? SKShapeNode else { return }
-            obstacle.fillColor = theme.foreground
-            obstacle.strokeColor = theme.foreground
+        for obstacle in obstacles {
+            obstacle.node.fillColor = theme.foreground
+            obstacle.node.strokeColor = theme.foreground
         }
     }
 
     private func createGround() {
         let line = CGMutablePath()
-        line.move(to: CGPoint(x: 16, y: Geometry.groundY))
-        line.addLine(to: CGPoint(x: size.width - 16, y: Geometry.groundY))
+        line.move(to: CGPoint(x: 16, y: Self.groundY))
+        line.addLine(to: CGPoint(x: size.width - 16, y: Self.groundY))
         ground.path = line
         ground.strokeColor = visualTheme.foreground
         ground.lineWidth = 2
@@ -75,8 +69,12 @@ final class GameScene: SKScene {
     }
 
     private func createMascot() {
-        mascot.position = CGPoint(x: max(112, size.width * 0.12), y: Geometry.groundY + MascotNode.renderedSize.height / 2)
+        placeMascot()
         addChild(mascot)
+    }
+
+    private func placeMascot() {
+        mascot.position = CGPoint(x: mascotX, y: Self.groundY + MascotNode.renderedSize.height / 2 + lift)
     }
 
     private func createLabels() {
@@ -133,7 +131,7 @@ final class GameScene: SKScene {
     private func jump() {
         guard state == .running, isGrounded else { return }
         isGrounded = false
-        verticalVelocity = Geometry.jumpVelocity
+        verticalVelocity = RunnerPhysics.takeoffVelocity
         mascot.setAirborne(true)
         mascot.run(.sequence([
             .scale(to: 0.92, duration: 0.06),
@@ -143,119 +141,100 @@ final class GameScene: SKScene {
 
     private func setPaused(_ paused: Bool) {
         state = paused ? .paused : .running
-        physicsWorld.speed = paused ? 0 : 1
-        children.filter { $0.name == "obstacle" }.forEach { $0.isPaused = paused }
         mascot.setRunning(!paused)
         hintLabel.text = paused ? "PAUSA  ·  ESPACIO PARA SEGUIR" : ""
     }
 
     private func reset() {
-        enumerateChildNodes(withName: "obstacle") { node, _ in node.removeFromParent() }
-        mascot.position = CGPoint(x: max(112, size.width * 0.12), y: Geometry.groundY + MascotNode.renderedSize.height / 2)
+        obstacles.forEach { $0.node.removeFromParent() }
+        obstacles.removeAll()
+        lift = 0
         verticalVelocity = 0
         isGrounded = true
+        placeMascot()
         mascot.setAirborne(false)
         score = 0
-        runSpeed = Geometry.minimumSpeed
         spawnElapsed = 0
         scoreElapsed = 0
-        nextSpawnDelay = 1.5
-        physicsWorld.speed = 1
+        nextSpawnDelay = RunnerPhysics.firstObstacleDelay
         updateLabels()
     }
 
     private func spawnObstacle() {
-        let variants: [CGSize] = [
-            CGSize(width: 22, height: 34),
-            CGSize(width: 30, height: 48),
-            CGSize(width: 20, height: 64),
-            CGSize(width: 48, height: 30),
-            CGSize(width: 38, height: 42)
-        ]
-        let obstacleSize = variants.randomElement() ?? variants[0]
-        let obstacle = SKShapeNode(rectOf: obstacleSize, cornerRadius: obstacleSize.width > 40 ? 5 : 2)
-        obstacle.name = "obstacle"
-        obstacle.fillColor = visualTheme.foreground
-        obstacle.strokeColor = visualTheme.foreground
-        obstacle.position = CGPoint(x: size.width + obstacleSize.width, y: Geometry.groundY + obstacleSize.height / 2)
+        guard let obstacleSize = RunnerPhysics.obstacleSizes.randomElement() else { return }
+        let node = SKShapeNode(rectOf: obstacleSize, cornerRadius: obstacleSize.width > 40 ? 5 : 2)
+        node.fillColor = visualTheme.foreground
+        node.strokeColor = visualTheme.foreground
+        // Every obstacle enters with its left edge at the scene's right edge, so the time between
+        // two arrivals is exactly the spawn interval, whatever their widths.
+        node.position = CGPoint(x: size.width + obstacleSize.width / 2, y: Self.groundY + obstacleSize.height / 2)
+        node.addChild(makeNotch(for: obstacleSize, y: obstacleSize.height * 0.16))
+        if obstacleSize.width >= 38 {
+            node.addChild(makeNotch(for: obstacleSize, y: -obstacleSize.height * 0.18))
+        }
+        addChild(node)
+        obstacles.append(Obstacle(node: node, size: obstacleSize))
+        nextSpawnDelay = .random(in: RunnerPhysics.obstacleInterval)
+    }
+
+    private func makeNotch(for obstacleSize: CGSize, y: CGFloat) -> SKShapeNode {
         let notch = SKShapeNode(rectOf: CGSize(width: max(5, obstacleSize.width * 0.30), height: 6), cornerRadius: 1)
         notch.fillColor = Theme.terracotta
         notch.strokeColor = .clear
-        notch.position = CGPoint(x: 0, y: obstacleSize.height * 0.16)
-        obstacle.addChild(notch)
-
-        if obstacleSize.width >= 38 {
-            let secondNotch = notch.copy() as! SKShapeNode
-            secondNotch.position.y = -obstacleSize.height * 0.18
-            obstacle.addChild(secondNotch)
-        }
-        addChild(obstacle)
-
-        let jumpDistance = runSpeed * Geometry.flightTime
-        let geometricSeparation = max(jumpDistance * 0.88, MascotNode.collisionSize.width + obstacleSize.width + 80)
-        nextSpawnDelay = TimeInterval(geometricSeparation / runSpeed) + Double.random(in: 0.30...0.72)
+        notch.position.y = y
+        return notch
     }
 
     override func update(_ currentTime: TimeInterval) {
-        guard state == .running else { lastUpdate = currentTime; return }
-        let delta = lastUpdate == 0 ? 0 : min(currentTime - lastUpdate, 1.0 / 20.0)
-        lastUpdate = currentTime
-        spawnElapsed += delta
-        scoreElapsed += delta
+        defer { lastUpdate = currentTime }
+        guard state == .running, lastUpdate > 0 else { return }
+        let dt = min(currentTime - lastUpdate, RunnerPhysics.maxStep)
 
+        spawnElapsed += dt
         if spawnElapsed >= nextSpawnDelay {
             spawnElapsed = 0
             spawnObstacle()
         }
 
-        runSpeed = min(Geometry.maximumSpeed, Geometry.minimumSpeed + CGFloat(score) * 1.25)
-        enumerateChildNodes(withName: "obstacle") { [runSpeed] node, _ in
-            node.position.x -= runSpeed * CGFloat(delta)
-            if node.position.x < -40 { node.removeFromParent() }
+        let speed = RunnerPhysics.speed(score: score)
+        for obstacle in obstacles {
+            obstacle.node.position.x -= speed * CGFloat(dt)
+        }
+        obstacles.removeAll { obstacle in
+            let isGone = obstacle.node.position.x < -obstacle.size.width
+            if isGone { obstacle.node.removeFromParent() }
+            return isGone
         }
 
         if !isGrounded {
-            verticalVelocity -= Geometry.gravity * CGFloat(delta)
-            mascot.position.y += verticalVelocity * CGFloat(delta)
-            let restingY = Geometry.groundY + MascotNode.renderedSize.height / 2
-            if mascot.position.y <= restingY {
-                mascot.position.y = restingY
+            (lift, verticalVelocity) = RunnerPhysics.step(height: lift, velocity: verticalVelocity, dt: dt)
+            if lift <= 0 {
+                lift = 0
                 verticalVelocity = 0
                 isGrounded = true
                 mascot.setAirborne(false)
             }
+            placeMascot()
         }
 
-        if intersectsObstacle() {
+        if hitsObstacle() {
             finishGame()
             return
         }
 
-        if scoreElapsed >= 0.1 {
-            scoreElapsed -= 0.1
+        scoreElapsed += dt
+        if scoreElapsed >= RunnerPhysics.pointInterval {
+            scoreElapsed -= RunnerPhysics.pointInterval
             score += 1
             updateLabels()
         }
-
     }
 
-    private func intersectsObstacle() -> Bool {
-        let bodyCenterOffset = -(MascotNode.renderedSize.height - MascotNode.collisionSize.height) / 2
-        let playerRect = CGRect(
-            x: mascot.position.x - MascotNode.collisionSize.width / 2,
-            y: mascot.position.y + bodyCenterOffset - MascotNode.collisionSize.height / 2,
-            width: MascotNode.collisionSize.width,
-            height: MascotNode.collisionSize.height
-        ).insetBy(dx: 3, dy: 2)
-
-        var collided = false
-        enumerateChildNodes(withName: "obstacle") { node, stop in
-            if playerRect.intersects(node.frame.insetBy(dx: 2, dy: 1)) {
-                collided = true
-                stop.pointee = true
-            }
+    private func hitsObstacle() -> Bool {
+        let body = RunnerPhysics.mascotHitbox(centerX: mascotX, height: lift)
+        return obstacles.contains { obstacle in
+            body.intersects(RunnerPhysics.obstacleHitbox(size: obstacle.size, centerX: obstacle.node.position.x))
         }
-        return collided
     }
 
     private func finishGame() {

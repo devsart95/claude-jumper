@@ -3,7 +3,6 @@ import SpriteKit
 
 final class MascotNode: SKNode {
     static let renderedSize = CGSize(width: 62, height: 62)
-    static let collisionSize = CGSize(width: 52, height: 48)
 
     private let sprite: SKSpriteNode
     private let shadow = SKShapeNode(ellipseOf: CGSize(width: 43, height: 7))

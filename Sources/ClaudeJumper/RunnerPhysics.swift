@@ -11,7 +11,9 @@ enum RunnerPhysics {
 
     static let startSpeed: CGFloat = 255
     static let topSpeed: CGFloat = 455
-    static let acceleration: CGFloat = 12.5
+    /// The run keeps getting faster for its whole first minute.
+    static let timeToTopSpeed: TimeInterval = 60
+    static let acceleration = (topSpeed - startSpeed) / CGFloat(timeToTopSpeed)
     static let pointsPerSecond: Double = 10
 
     /// Longest single step of the simulation, so an obstacle can't pass through the mascot between checks.
@@ -39,7 +41,6 @@ enum RunnerPhysics {
     private static let mascotForgiveness = CGSize(width: 3, height: 2)
     private static let obstacleForgiveness = CGSize(width: 2, height: 1)
 
-    private static let timeToTopSpeed = TimeInterval((topSpeed - startSpeed) / acceleration)
     private static let distanceToTopSpeed = distance(atRunTime: timeToTopSpeed)
 
     static func score(atRunTime time: TimeInterval) -> Int {

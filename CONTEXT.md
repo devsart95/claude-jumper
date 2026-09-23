@@ -1,12 +1,7 @@
 # CONTEXT — claude-jumper
 
-## Acción pendiente (Justino)
-- **Jugar una ronda con la Mac desbloqueada** (saltar, chocar, minimizar y volver a mostrar,
-  arrastrar) y recién ahí pasar el repo a público. Hoy es privado (2026-09-23):
-  `gh repo edit devsart95/claude-jumper --visibility public --accept-visibility-change-consequences`
-
 ## Estado (2026-09-23)
-- GitHub `devsart95/claude-jumper`, rama `main`, **privado**. Sin releases ni binarios publicados:
+- GitHub `devsart95/claude-jumper`, rama `main`, **público** desde 2026-09-23 (MIT). Sin releases ni binarios publicados:
   quien lo quiera compila con `./scripts/build-app.sh`.
 - Sin deploy: es una app local de macOS.
 

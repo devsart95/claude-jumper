@@ -6,6 +6,8 @@ let owner = "Claude Jumper"
 let minimumLevel = Int(CGWindowLevelForKey(.statusWindow))
 let settleAfterFullScreen: TimeInterval = 1.5
 let fullScreenTimeout: TimeInterval = 10
+// The control bar belongs to the same process; only the track is this tall.
+let minimumTrackHeight: Double = 100
 
 var failures = 0
 
@@ -16,13 +18,12 @@ func check(_ ok: Bool, _ message: String) {
 
 func onScreenTrack() -> [String: Any]? {
     let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-    func area(_ window: [String: Any]) -> Double {
-        let bounds = window[kCGWindowBounds as String] as? [String: Double] ?? [:]
-        return (bounds["Width"] ?? 0) * (bounds["Height"] ?? 0)
+    func height(_ window: [String: Any]) -> Double {
+        (window[kCGWindowBounds as String] as? [String: Double])?["Height"] ?? 0
     }
-    return windows
-        .filter { $0[kCGWindowOwnerName as String] as? String == owner }
-        .max { area($0) < area($1) }
+    return windows.first {
+        $0[kCGWindowOwnerName as String] as? String == owner && height($0) >= minimumTrackHeight
+    }
 }
 
 guard let track = onScreenTrack() else {

@@ -23,7 +23,14 @@
   README lo dice. Si Icons8 reclama: reemplazar por una mascota propia en `MascotNode`.
 - Proyecto de fan: disclaimer de no afiliación con Anthropic en el README. El nombre usa la marca
   «Claude».
-- README en inglés; la UI del juego sigue en español (el README trae un mini glosario).
+- README en inglés y sólo sobre el juego: sin grabación, configuración ni estructura del repo
+  (pedido de Justino, 2026-09-23). La UI del juego sigue en español.
+- La física vive en `RunnerPhysics` (sin SpriteKit) y sus reglas son tests (`swift test`): el salto
+  llega a 125 pt a cualquier fps (integración exacta; la Euler anterior daba 115–122 pt), cada
+  obstáculo deja ≥ 0,3 s de ventana a la velocidad inicial, y tras aterrizar quedan ≥ 0,4 s para el
+  siguiente. Tocar gravedad, alturas, hitboxes o el intervalo entre obstáculos = correr los tests.
+- Obstáculos: uno cada «un salto + 0,20–0,62 s». Es el mismo ritmo que el spawner anterior
+  (≤ 4 ms de diferencia), cuya rama `max()` por ancho nunca ganaba.
 - Heros del README (`docs/hero-{dark,light}.png`): la pista es una captura real con alfa
   (`screencapture -l <windowID> -o`, saltando con el botón «Saltar ahora» por AX, no con la barra
   espaciadora sintética) compuesta sobre un fondo HTML de editor y terminal renderizado a 2x.
@@ -33,6 +40,8 @@
 - **El tema cambió solo** durante ráfagas de capturas con `osascript … key code 49` (el guardado
   pasó de `darkBackground` a `lightBackground` sin tocar el botón). Aislado (un espacio, con la
   app o Terminal al frente) no se reprodujo. Con clicks por AX no pasa.
-- Sin tests. La banda `herramienta` pide tests de dominio: la física de `GameScene.Geometry`
-  (salto, separación de obstáculos) es lo primero. Hoy no hay test target: `swift test` no corre
-  nada.
+- Permiso: la app da por activa la entrada global con Accesibilidad *o* Monitoreo de entrada, pero
+  según Apple el monitor global de teclas sólo funciona con Accesibilidad. Con sólo Monitoreo de
+  entrada el menú dice «activa» y el salto no responde.
+- Dificultad: la velocidad tope llega a los 16 s y después el juego no cambia; como el salto dura
+  siempre 0,80 s, la ventana para saltar se agranda con la velocidad. Es decisión de diseño.

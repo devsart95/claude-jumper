@@ -7,10 +7,12 @@
 
 # Claude Jumper
 
-**An endless runner that lives on top of your desktop.**
+An endless runner that lives on top of your macOS desktop.
 
-Press <kbd>Space</kbd> in *any* app (your editor, your terminal, a fullscreen video) and the little guy jumps.<br>
-Think Chrome's offline dino, except it's native, it floats above every window, and it never steals your focus.
+Press <kbd>Space</kbd> in any app (your editor, your terminal, a fullscreen video) and the little guy jumps.<br>
+It's Chrome's offline dino, but native, and it floats above every window without taking focus.
+
+Best played while Claude is down or the API returns `529 overloaded_error`. You were going to wait anyway.
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
@@ -20,21 +22,19 @@ Think Chrome's offline dino, except it's native, it floats above every window, a
 
 </div>
 
----
+## Features
 
-## ✨ Features
+- The space bar works from any app. Claude Jumper watches for the key without swallowing it, so the app you're typing in still gets every keystroke.
+- Clicks pass through the track to whatever is behind it. Only the small control bar takes the mouse.
+- The track sits at the status bar window level, so it stays visible over fullscreen apps and on every Space.
+- Two themes, for light and dark wallpapers. The window stays fully transparent in both, and the app remembers your choice.
+- Recording mode hides the controls, so an OBS capture shows only the game.
+- The high score is stored locally. There are no accounts and nothing goes over the network.
+- No dependencies beyond AppKit, SpriteKit and SwiftPM: about 850 lines of Swift, and no `.xcodeproj`.
 
-- **Global space bar.** It *observes* the key, it doesn't swallow it: your app still gets every keystroke.
-- **Click-through track.** Clicks go straight to whatever is behind it. Only the tiny control bar catches the mouse.
-- **Always on top.** The track sits at the status-bar window level, so it stays visible over fullscreen apps and on every Space.
-- **Two themes**, *on light* and *on dark* wallpapers. The window stays 100 % transparent either way, and your choice is remembered.
-- **Recording mode** hides the controls, so your OBS capture is just the game.
-- **Local high score.** No accounts, no leaderboard, no network.
-- **Zero dependencies**: AppKit + SpriteKit + SwiftPM, about 850 lines of Swift. No `.xcodeproj` in sight.
+## Quick start
 
-## 🚀 Quick start
-
-You need **macOS 14 Sonoma or later** and **Xcode 16+** (the Swift 6 toolchain).
+You need macOS 14 (Sonoma) or later, and Xcode 16 or later for the Swift 6 toolchain.
 
 ```bash
 git clone https://github.com/devsart95/claude-jumper.git
@@ -43,27 +43,27 @@ cd claude-jumper
 open "dist/Claude Jumper.app"
 ```
 
-On first launch macOS asks for **Accessibility** permission, which a global key monitor needs. You can manage it in
-*System Settings → Privacy & Security → Accessibility*.
+On first launch macOS asks for Accessibility permission, which the global key monitor needs. You can change it later in
+System Settings > Privacy & Security > Accessibility.
 
 > [!TIP]
-> **Code signing:** `build-app.sh` uses your first *Apple Development* identity if you have one, and signs ad-hoc otherwise.
-> With an ad-hoc signature macOS forgets the Accessibility grant on every rebuild. To pick a specific identity:
+> `build-app.sh` signs with your first Apple Development identity, or ad-hoc if you don't have one. An ad-hoc build loses
+> the Accessibility grant every time you rebuild. To use a specific identity:
 > `CODE_SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./scripts/build-app.sh`
 
-## 🎮 Controls
+## Controls
 
-| Input | What it does |
+| Input | Action |
 |---|---|
-| <kbd>Space</kbd> | Start · jump · resume · retry. It works from any app. |
-| 🔴 red button | Quit |
-| 🟡 yellow button | Hide the track (bring it back from the menu bar) |
-| 🔵 arrow button | Jump (for when you're mouse-only) |
-| 🔵 sun / moon button | Toggle *on light* / *on dark* theme |
-| ☰ handle | Drag to move the whole track |
-| 🏃 menu bar icon | Show · recording mode · pause · theme · reset high score · quit |
+| <kbd>Space</kbd> | Start, jump, resume or retry, from any app |
+| Red button | Quit |
+| Yellow button | Hide the track (bring it back from the menu bar) |
+| Blue arrow | Jump, if you'd rather click |
+| Blue sun or moon | Switch between the light and dark themes |
+| Striped handle | Drag to move the track |
+| Menu bar icon (a running figure) | Show, recording mode, pause, theme, reset high score, quit |
 
-The in-game UI speaks Spanish 🇵🇾. Your pocket dictionary:
+The in-game text is in Spanish. A pocket dictionary:
 
 | On screen | Means |
 |---|---|
@@ -72,9 +72,9 @@ The in-game UI speaks Spanish 🇵🇾. Your pocket dictionary:
 | `OUCH · ESPACIO PARA REINTENTAR` | you crashed, space to retry |
 | `RÉCORD` | high score |
 
-## ⚙️ Configuration
+## Configuration
 
-Everything lives in `UserDefaults` under `py.devsar.claudejumper`:
+Settings live in `UserDefaults` under `py.devsar.claudejumper`:
 
 ```bash
 # Put your own handle on the track (an empty string hides it)
@@ -84,11 +84,11 @@ defaults write py.devsar.claudejumper signature "@you"
 defaults write py.devsar.claudejumper gameTheme lightBackground
 ```
 
-The high score is stored under `highScore`. Resetting it from the menu is friendlier than `defaults delete`.
+The high score is stored as `highScore`. Resetting it from the menu is easier than `defaults delete`.
 
-## 🧪 The physics, for nerds
+## The physics, for nerds
 
-The jump isn't tuned by feel. It's derived from projectile motion:
+The jump height comes from projectile motion:
 
 ```swift
 // v = √(2gh). This guarantees the player's lower edge clears the
@@ -104,38 +104,35 @@ static let flightTime = (2 * jumpVelocity) / gravity
 | Jump height *h* | 125 pt (the tallest obstacle is 64 pt) |
 | Takeoff velocity √(2gh) | ≈ 622.5 pt/s |
 | Airtime 2v/g | ≈ 0.803 s |
-| Run speed | 255 → 455 pt/s, +1.25 pt/s per point |
-| Jump length | ≈ 205 pt at start, ≈ 365 pt at top speed |
+| Run speed | 255 pt/s at the start, +1.25 pt/s per point, capped at 455 pt/s |
+| Jump length | ≈ 205 pt at the start, ≈ 365 pt at top speed |
 | Score | 10 points per second, so top speed arrives at 160 points (16 s) |
 
-A few more details:
+- Obstacle gaps scale with speed. Each one is at least 88 % of the current jump length, plus 0.30 to 0.72 s of random slack.
+- The frame delta is capped at 1/20 s, so a stutter can't carry you through an obstacle.
+- Hitboxes are axis-aligned boxes inset by a few points, so you're slightly thinner than you look.
+- The sprite uses nearest-neighbor filtering to keep the pixel art sharp.
 
-- **Obstacle spacing comes from the physics.** Each gap is at least 88 % of the current jump length, plus 0.30–0.72 s of jitter, so the gaps stretch as the speed climbs.
-- **No tunneling.** The frame delta is clamped to 1/20 s, so a hiccup can't teleport you through an obstacle.
-- **Forgiving hitboxes.** Collisions are axis-aligned boxes inset a few points, so you're a little thinner than you look.
-- **Crisp pixels.** The sprite renders with nearest-neighbor filtering, so there's no blurry pixel art.
+## Privacy
 
-## 🔒 Privacy
+Is this a keylogger? No. A single global monitor checks `event.keyCode == 49` (space) and ignores every other key. Nothing
+is logged or sent anywhere, and the app has no networking code. The only values it saves are `highScore`, `gameTheme` and
+`signature`.
 
-Reasonable question: *is this a keylogger?* No.
+You can check with `grep -rn "keyCode" Sources/`, or read all ~850 lines.
 
-- One global monitor compares `event.keyCode == 49` (space) and ignores everything else.
-- Nothing is logged, stored or sent anywhere. There's no networking code at all.
-- The only things persisted are `highScore`, `gameTheme` and `signature`.
+## Recording
 
-Don't trust a README: `grep -rn "keyCode" Sources/` and read the ~850 lines yourself.
+Use Display Capture in OBS; window and app capture leave the track out. Recording mode (no controls), in the menu bar icon,
+hides the buttons and the handle.
 
-## 🎥 Recording
-
-- In OBS, use **Display Capture**. Window or app capture leaves the track out.
-- Turn on **Recording mode (no controls)** from the menu bar icon to hide the buttons and the handle.
-- To check that the track stays above fullscreen apps, run this with the game open:
+To confirm the track stays above fullscreen apps, run this with the game open:
 
 ```bash
 swift scripts/verificar-overlay.swift   # puts a test window in fullscreen; exits 1 if the track disappears
 ```
 
-## 🗂 Project layout
+## Project layout
 
 ```
 claude-jumper/
@@ -154,18 +151,17 @@ claude-jumper/
 └── docs/                          # README images
 ```
 
-## 🙏 Credits
+## Credits
 
-- Pixel mascot sprite and app icon by **[Icons8](https://icons8.com)**.
-- Built by DevSar in Paraguay 🇵🇾. Signed on the track as `@rojassartorio`.
+Pixel mascot sprite and app icon by [Icons8](https://icons8.com). Built by DevSar in Paraguay 🇵🇾; the handle on the track
+is `@rojassartorio`.
 
 > [!NOTE]
 > Claude Jumper is an unofficial fan project. It is not affiliated with, endorsed by, or sponsored by Anthropic.
 > Claude is a trademark of Anthropic, PBC.
 
-## 📄 License
+## License
 
-The source code is released under the [MIT License](LICENSE).
-
-The files in `Assets/` (`clawd-sunglasses.png` and `ClaudeJumper.icns`) come from Icons8. They are **not** covered by the MIT
-license; their use is governed by the [Icons8 license](https://icons8.com/license).
+The source code is under the [MIT License](LICENSE). The files in `Assets/` (`clawd-sunglasses.png` and
+`ClaudeJumper.icns`) come from Icons8 and are not covered by MIT; the [Icons8 license](https://icons8.com/license) applies to
+them.

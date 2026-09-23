@@ -1,0 +1,14 @@
+proyecto: claudejumper
+dueno: Sarto
+magnitud: herramienta   # juego propio para filmar contenido; código abierto (MIT) en GitHub desde 2026-09-23
+repo: github.com/devsart95/claude-jumper
+
+stack:
+  lenguaje: Swift 6 (Swift Package, sin Xcode project)
+  ui: AppKit + SpriteKit
+  plataforma: macOS 14+
+
+comandos:
+  build: ./scripts/build-app.sh
+  # Necesita la app abierta; pone una ventana en pantalla completa unos segundos.
+  verificar: swift scripts/verificar-overlay.swift

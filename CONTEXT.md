@@ -36,6 +36,9 @@
   saltando el primero en el último momento válido, se aterriza ≥ `timingMargin` (0,2 s) antes del
   último momento para saltar el siguiente. Separación 0,94–1,47 s, media 1,20 s (igual ritmo que el
   diseño original).
+- **Cuadros lentos se juegan en pasos de ≤ 1/20 s** (hasta 0,25 s de puesta al día). Antes se
+  recortaban y el juego iba en cámara lenta: en la Mac a batería con Modo de bajo consumo el
+  puntaje corrió a ~5 pts/s en vez de 10 (2026-09-23).
 - El pitido de choque lo pone la ventana (`GameScene.onGameOver`); la escena recibe tema y
   `UserDefaults` por init, así los tests no pitan ni escriben el récord real.
 - Heros del README (`docs/hero-{dark,light}.png`): la pista es una captura real con alfa

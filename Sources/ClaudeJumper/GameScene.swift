@@ -227,7 +227,17 @@ final class GameScene: SKScene {
     override func update(_ currentTime: TimeInterval) {
         defer { lastUpdate = currentTime }
         guard state == .running, lastUpdate > 0 else { return }
-        let dt = min(currentTime - lastUpdate, RunnerPhysics.maxStep)
+        // A slow frame is played as several short steps: time keeps up with the clock and no step
+        // is long enough to carry an obstacle through the mascot.
+        var remaining = min(currentTime - lastUpdate, RunnerPhysics.maxCatchUp)
+        while remaining > 0, state == .running {
+            let dt = min(remaining, RunnerPhysics.maxStep)
+            advance(by: dt, at: currentTime)
+            remaining -= dt
+        }
+    }
+
+    private func advance(by dt: TimeInterval, at currentTime: TimeInterval) {
         runTime += dt
         let scrolled = RunnerPhysics.distance(atRunTime: runTime)
 

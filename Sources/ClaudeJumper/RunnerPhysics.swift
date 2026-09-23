@@ -14,8 +14,10 @@ enum RunnerPhysics {
     static let acceleration: CGFloat = 12.5
     static let pointsPerSecond: Double = 10
 
-    /// A longer frame is cut to this, so a hitch can't carry an obstacle through the mascot.
+    /// Longest single step of the simulation, so an obstacle can't pass through the mascot between checks.
     static let maxStep: TimeInterval = 1.0 / 20
+    /// After a stall (the Mac waking up, a dragged window) the run catches up this much at most.
+    static let maxCatchUp: TimeInterval = 0.25
 
     static let firstObstacleDelay: TimeInterval = 1.5
     /// Even after the latest jump that still clears an obstacle, you land this long before the
